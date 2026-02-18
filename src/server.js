@@ -244,6 +244,8 @@ function requireSetupAuth(req, res, next) {
 
 const app = express();
 app.disable("x-powered-by");
+// Trust Railway's upstream proxy (1 hop) so req.ip and rate-limiting work correctly.
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "1mb" }));
 
 // Minimal health endpoint for Railway.

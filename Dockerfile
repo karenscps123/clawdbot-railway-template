@@ -45,6 +45,7 @@ ENV NODE_ENV=production
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
+    gosu \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -62,8 +63,20 @@ RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"'
 
 COPY src ./src
 
+# Security: run as non-root.
+# /data is a Railway volume mounted at runtime (owned by root), so we use an entrypoint
+# script to fix ownership then drop to the unprivileged 'node' user (uid 1000).
+RUN printf '%s\n' \
+  '#!/bin/sh' \
+  'set -e' \
+  'chown -R node:node /data 2>/dev/null || true' \
+  'exec gosu node "$@"' \
+  > /docker-entrypoint.sh \
+  && chmod +x /docker-entrypoint.sh
+
 # The wrapper listens on this port.
 ENV OPENCLAW_PUBLIC_PORT=8080
 ENV PORT=8080
 EXPOSE 8080
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["node", "src/server.js"]
